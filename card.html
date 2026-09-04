@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Digital Card</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles/themes.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body data-theme="obsidian">
+
+<div class="card" id="cardRoot" style="display:none">
+  <div class="card-header" id="cardHeader">
+    <div class="term-row" style="display:none" id="termDots">
+      <span class="term-dot r"></span><span class="term-dot y"></span><span class="term-dot g"></span>
+    </div>
+    <div class="avatar" id="avatarInitials"></div>
+    <div class="term-path" id="termPath" style="display:none"></div>
+    <div class="name" id="cardName"></div>
+    <div class="role" id="cardRole"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="profile" onclick="showTab('profile')">Profile</button>
+    <button class="tab-btn" data-tab="cv" onclick="showTab('cv')">CV</button>
+    <button class="tab-btn" data-tab="social" onclick="showTab('social')">Social</button>
+    <button class="tab-btn" data-tab="ai" onclick="showTab('ai')">AI Assistant</button>
+  </div>
+
+  <div class="tab-panel active" id="panel-profile">
+    <a class="link-row" href="#" id="phoneLink" onclick="downloadVCard();return false;">
+      <div class="info-label">Phone · Tap to save contact</div>
+      <div class="info-text" id="phoneText">—</div>
+    </a>
+    <div class="link-row">
+      <div class="info-label">Email</div>
+      <div class="info-text" id="emailText">—</div>
+    </div>
+    <a class="link-row" href="#" id="websiteLink" target="_blank">
+      <div class="info-label">Website</div>
+      <div class="info-text" id="websiteText">—</div>
+    </a>
+    <div class="link-row">
+      <div class="info-label">About</div>
+      <div class="info-text" id="bioText">—</div>
+    </div>
+    <button class="btn-primary" onclick="downloadVCard()">Save Contact</button>
+  </div>
+
+  <div class="tab-panel" id="panel-cv">
+    <div class="info-text" id="cvEmpty">No CV uploaded yet.</div>
+    <a class="btn-primary" id="cvDownloadLink" href="#" target="_blank" style="display:none;text-align:center;text-decoration:none;display:block;margin-top:10px">View / Download CV</a>
+  </div>
+
+  <div class="tab-panel" id="panel-social">
+    <div class="social-grid" id="socialGrid"></div>
+  </div>
+
+  <div class="tab-panel" id="panel-ai">
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-msg ai" id="chatGreeting">Loading…</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder="Ask me about this person…"/>
+      <button class="btn-primary" style="width:auto;padding:11px 16px" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="notFound" style="display:none;color:#8a8aa8;font-family:Inter,sans-serif;text-align:center;margin-top:60px">
+  Card not found.
+</div>
+
+<script src="config.js"></script>
+<script>
+  let profile = null;
+  let chatHistory = [];
+
+  const socialMeta = {
+    linkedin: { label: 'LinkedIn', color: '#0A66C2' },
+    github: { label: 'GitHub', color: '#24292e' },
+    twitter: { label: 'X / Twitter', color: '#000' },
+    instagram: { label: 'Instagram', color: '#cc2366' },
+    whatsapp: { label: 'WhatsApp', color: '#25D366' },
+    telegram: { label: 'Telegram', color: '#229ED9' },
+  };
+
+  function showTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  }
+
+  function initials(name) {
+    return (name || '?').split(' ').filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('');
+  }
+
+  async function loadProfile() {
+    const params = new URLSearchParams(window.location.search);
+    const username = params.get('u');
+    if (!username) { document.getElementById('notFound').style.display = 'block'; return; }
+
+    const { data, error } = await supabaseClient.from('profiles').select('*').eq('username', username).single();
+    if (error || !data) { document.getElementById('notFound').style.display = 'block'; return; }
+
+    profile = data;
+    render();
+  }
+
+  function render() {
+    document.body.setAttribute('data-theme', profile.theme || 'obsidian');
+    document.getElementById('cardRoot').style.display = 'block';
+
+    if (profile.theme === 'terminal') {
+      document.getElementById('termDots').style.display = 'flex';
+      document.getElementById('termPath').style.display = 'block';
+      document.getElementById('avatarInitials').style.display = 'none';
+    } else {
+      document.getElementById('avatarInitials').textContent = initials(profile.full_name);
+    }
+
+    document.getElementById('cardName').textContent = profile.full_name || '';
+    document.getElementById('cardRole').textContent = profile.role || '';
+    document.title = profile.full_name || 'Digital Card';
+
+    document.getElementById('phoneText').textContent = profile.phone || 'Not provided';
+    document.getElementById('emailText').textContent = profile.email || 'Not provided';
+    document.getElementById('bioText').textContent = profile.bio || '—';
+
+    const webLink = document.getElementById('websiteLink');
+    if (profile.website) {
+      webLink.href = profile.website;
+      document.getElementById('websiteText').textContent = profile.website.replace(/^https?:\/\//, '');
+    } else {
+      webLink.removeAttribute('href');
+      document.getElementById('websiteText').textContent = 'Not provided';
+    }
+
+    if (profile.cv_url) {
+      document.getElementById('cvEmpty').style.display = 'none';
+      const link = document.getElementById('cvDownloadLink');
+      link.href = profile.cv_url;
+      link.style.display = 'block';
+    }
+
+    const grid = document.getElementById('socialGrid');
+    grid.innerHTML = '';
+    const socials = profile.socials || {};
+    Object.keys(socials).forEach(key => {
+      const meta = socialMeta[key];
+      if (!meta || !socials[key]) return;
+      const a = document.createElement('a');
+      a.href = socials[key];
+      a.target = '_blank';
+      a.className = 'social-btn';
+      a.textContent = meta.label;
+      grid.appendChild(a);
+    });
+    if (!grid.children.length) grid.innerHTML = '<div class="info-text">No social links added yet.</div>';
+
+    document.getElementById('chatGreeting').textContent =
+      `Ask me anything about ${profile.full_name.split(' ')[0]} — what they work on, how to reach them, their background.`;
+  }
+
+  function downloadVCard() {
+    if (!profile) return;
+    const vcard = `BEGIN:VCARD
+VERSION:3.0
+FN:${profile.full_name}
+TITLE:${profile.role || ''}
+TEL;TYPE=CELL:${profile.phone || ''}
+EMAIL:${profile.email || ''}
+URL:${profile.website || ''}
+END:VCARD`;
+    const blob = new Blob([vcard], { type: 'text/vcard' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${profile.full_name.replace(/\s+/g,'-')}.vcf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function sendChat() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text || !profile) return;
+    input.value = '';
+
+    const win = document.getElementById('chatWindow');
+    const userDiv = document.createElement('div');
+    userDiv.className = 'chat-msg user';
+    userDiv.textContent = text;
+    win.appendChild(userDiv);
+    win.scrollTop = win.scrollHeight;
+
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'chat-msg ai';
+    loadingDiv.textContent = '…';
+    win.appendChild(loadingDiv);
+    win.scrollTop = win.scrollHeight;
+
+    try {
+      const res = await fetch(AI_ASSISTANT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: {
+            full_name: profile.full_name,
+            role: profile.role,
+            bio: profile.bio,
+            website: profile.website,
+          },
+          message: text,
+          history: chatHistory,
+        }),
+      });
+      const data = await res.json();
+      loadingDiv.textContent = data.reply || 'Sorry, something went wrong.';
+      chatHistory.push({ role: 'user', content: text });
+      chatHistory.push({ role: 'assistant', content: data.reply || '' });
+    } catch (err) {
+      loadingDiv.textContent = 'Could not reach the AI assistant right now.';
+    }
+    win.scrollTop = win.scrollHeight;
+  }
+
+  document.getElementById('chatInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendChat();
+  });
+
+  loadProfile();
+</script>
+</body>
+</html>

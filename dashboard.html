@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Edit Your Card</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0f;color:#e8e8f0;font-family:'Inter',sans-serif;padding:24px 16px 80px;min-height:100vh}
+  .wrap{max-width:520px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+  h1{font-family:'Space Grotesk',sans-serif;font-size:20px}
+  button.signout{background:none;border:1px solid rgba(255,255,255,0.15);color:#8a8aa8;padding:8px 14px;border-radius:10px;font-size:12px;cursor:pointer}
+  .panel{background:#16161f;border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:22px;margin-bottom:18px}
+  .panel h2{font-family:'Space Grotesk',sans-serif;font-size:14px;margin-bottom:16px;color:#a78bfa}
+  label{display:block;font-size:11.5px;color:#8a8aa8;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px}
+  label:first-of-type{margin-top:0}
+  input,textarea{width:100%;padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:#111118;color:#e8e8f0;font-size:14px;font-family:inherit}
+  textarea{resize:vertical;min-height:70px}
+  input:focus,textarea:focus{outline:none;border-color:#6c63ff}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .theme-opt{border:2px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px;cursor:pointer;text-align:center}
+  .theme-opt.selected{border-color:#6c63ff}
+  .swatch{height:36px;border-radius:8px;margin-bottom:8px}
+  .swatch.obsidian{background:linear-gradient(135deg,#6c63ff,#a78bfa)}
+  .swatch.ledger{background:linear-gradient(135deg,#f4f2ec,#2f5d4f)}
+  .swatch.terminal{background:#0a100d;border:1px solid #3ddc84}
+  .theme-opt span{font-size:11px;color:#c8c8e0}
+  .social-field{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .social-field span{width:90px;font-size:12px;color:#8a8aa8;flex-shrink:0}
+  .social-field input{flex:1}
+  .file-row{display:flex;align-items:center;gap:10px;margin-top:6px}
+  .file-row input[type=file]{padding:8px}
+  .small{font-size:11.5px;color:#8a8aa8;margin-top:6px}
+  button.save{width:100%;padding:14px;border:none;border-radius:14px;background:#6c63ff;color:#fff;font-weight:600;font-size:14px;cursor:pointer;margin-top:6px}
+  button.save:disabled{opacity:0.5}
+  .msg{font-size:12.5px;margin-top:10px;text-align:center}
+  .msg.error{color:#ff6b6b}
+  .msg.success{color:#3ddc84}
+  .card-link{background:#111118;border:1px dashed rgba(255,255,255,0.2);border-radius:12px;padding:14px;font-size:13px;word-break:break-all;margin-top:10px}
+  .card-link a{color:#a78bfa}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Your card</h1>
+    <button class="signout" onclick="signOut()">Sign out</button>
+  </header>
+
+  <form id="profileForm">
+    <div class="panel">
+      <h2>Basics</h2>
+      <label>Card URL (username)</label>
+      <input id="username" required pattern="[a-z0-9-]+" placeholder="e.g. edy-promise" title="lowercase letters, numbers, hyphens only"/>
+      <label>Full name</label>
+      <input id="full_name" required placeholder="Anthony Edosawe Promise"/>
+      <label>What you do</label>
+      <input id="role" required placeholder="Data Analyst & AI Data Specialist"/>
+      <label>Short bio</label>
+      <textarea id="bio" placeholder="A couple of sentences about you — this is also what your AI assistant uses to answer questions about you."></textarea>
+      <div class="row2">
+        <div>
+          <label>Website</label>
+          <input id="website" placeholder="https://edy.dev"/>
+        </div>
+        <div>
+          <label>Phone</label>
+          <input id="phone" placeholder="+234..."/>
+        </div>
+      </div>
+      <label>Email (shown on card)</label>
+      <input id="email_display" type="email" placeholder="edy@example.com"/>
+    </div>
+
+    <div class="panel">
+      <h2>CV</h2>
+      <label>Upload CV (PDF)</label>
+      <div class="file-row">
+        <input type="file" id="cvFile" accept="application/pdf"/>
+      </div>
+      <div class="small" id="cvStatus">No CV uploaded yet.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Card design</h2>
+      <div class="theme-grid">
+        <div class="theme-opt" data-theme="obsidian" onclick="selectTheme('obsidian')">
+          <div class="swatch obsidian"></div><span>Obsidian</span>
+        </div>
+        <div class="theme-opt" data-theme="ledger" onclick="selectTheme('ledger')">
+          <div class="swatch ledger"></div><span>Ledger</span>
+        </div>
+        <div class="theme-opt" data-theme="terminal" onclick="selectTheme('terminal')">
+          <div class="swatch terminal"></div><span>Terminal</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Social links</h2>
+      <div class="social-field"><span>LinkedIn</span><input id="s_linkedin" placeholder="https://linkedin.com/in/..."/></div>
+      <div class="social-field"><span>GitHub</span><input id="s_github" placeholder="https://github.com/..."/></div>
+      <div class="social-field"><span>X / Twitter</span><input id="s_twitter" placeholder="https://x.com/..."/></div>
+      <div class="social-field"><span>Instagram</span><input id="s_instagram" placeholder="https://instagram.com/..."/></div>
+      <div class="social-field"><span>WhatsApp</span><input id="s_whatsapp" placeholder="https://wa.me/234..."/></div>
+      <div class="social-field"><span>Telegram</span><input id="s_telegram" placeholder="https://t.me/..."/></div>
+    </div>
+
+    <button class="save" type="submit" id="saveBtn">Save card</button>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <div class="card-link" id="cardLinkBox" style="display:none">
+    Your card is live at:<br/>
+    <a id="cardLinkA" href="#" target="_blank"></a>
+    <div class="small">Write this URL to your NFC tag (see README, Step 8).</div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+  let userId = null;
+  let selectedTheme = 'obsidian';
+  let cvUrl = null;
+
+  function selectTheme(t) {
+    selectedTheme = t;
+    document.querySelectorAll('.theme-opt').forEach(el => el.classList.toggle('selected', el.dataset.theme === t));
+  }
+
+  async function init() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) { window.location.href = 'auth.html'; return; }
+    userId = session.user.id;
+    document.getElementById('email_display').value = session.user.email || '';
+
+    const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', userId).single();
+    if (profile) {
+      document.getElementById('username').value = profile.username || '';
+      document.getElementById('full_name').value = profile.full_name || '';
+      document.getElementById('role').value = profile.role || '';
+      document.getElementById('bio').value = profile.bio || '';
+      document.getElementById('website').value = profile.website || '';
+      document.getElementById('phone').value = profile.phone || '';
+      document.getElementById('email_display').value = profile.email || session.user.email || '';
+      cvUrl = profile.cv_url;
+      if (cvUrl) document.getElementById('cvStatus').textContent = 'CV uploaded ✓';
+      const s = profile.socials || {};
+      ['linkedin','github','twitter','instagram','whatsapp','telegram'].forEach(k => {
+        const el = document.getElementById('s_' + k);
+        if (el) el.value = s[k] || '';
+      });
+      selectTheme(profile.theme || 'obsidian');
+      showCardLink(profile.username);
+    } else {
+      selectTheme('obsidian');
+    }
+  }
+
+  function showCardLink(username) {
+    if (!username) return;
+    const url = `${window.location.origin}${window.location.pathname.replace('dashboard.html','card.html')}?u=${username}`;
+    document.getElementById('cardLinkA').href = url;
+    document.getElementById('cardLinkA').textContent = url;
+    document.getElementById('cardLinkBox').style.display = 'block';
+  }
+
+  async function signOut() {
+    await supabaseClient.auth.signOut();
+    window.location.href = 'auth.html';
+  }
+
+  document.getElementById('profileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('msg');
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    msg.className = 'msg'; msg.textContent = 'Saving…';
+
+    try {
+      // 1. Upload CV if a new file was chosen
+      const cvFile = document.getElementById('cvFile').files[0];
+      if (cvFile) {
+        const path = `${userId}/cv.pdf`;
+        const { error: upErr } = await supabaseClient.storage.from('cvs').upload(path, cvFile, { upsert: true, contentType: 'application/pdf' });
+        if (upErr) throw upErr;
+        const { data: pub } = supabaseClient.storage.from('cvs').getPublicUrl(path);
+        cvUrl = pub.publicUrl;
+        document.getElementById('cvStatus').textContent = 'CV uploaded ✓';
+      }
+
+      const socials = {};
+      ['linkedin','github','twitter','instagram','whatsapp','telegram'].forEach(k => {
+        const v = document.getElementById('s_' + k).value.trim();
+        if (v) socials[k] = v;
+      });
+
+      const payload = {
+        id: userId,
+        username: document.getElementById('username').value.trim().toLowerCase(),
+        full_name: document.getElementById('full_name').value.trim(),
+        role: document.getElementById('role').value.trim(),
+        bio: document.getElementById('bio').value.trim(),
+        website: document.getElementById('website').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        email: document.getElementById('email_display').value.trim(),
+        cv_url: cvUrl,
+        theme: selectedTheme,
+        socials,
+      };
+
+      const { error } = await supabaseClient.from('profiles').upsert(payload);
+      if (error) throw error;
+
+      msg.className = 'msg success';
+      msg.textContent = 'Saved!';
+      showCardLink(payload.username);
+    } catch (err) {
+      msg.className = 'msg error';
+      msg.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>
